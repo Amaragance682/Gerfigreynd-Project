@@ -1,0 +1,36 @@
+# Shared conda environment for the REI505M brain-age project.
+# The same file should work on all OS's
+#
+#   conda env create -f environment.yml    # first time (run from the repo folder)
+#   conda env update -f environment.yml    # after someone changes this file
+#   conda activate rei505m-brainage        # once you want to use it
+#
+# Reccomended builds for different OS:
+#   Linux   -> CUDA 13 build for NVIDIA GPUs (needs NVIDIA driver 580 or newer)
+#   Windows -> CPU-only build (enough for EDA and the feature baseline)
+#   macOS   -> Apple Silicon build with the MPS (Metal) GPU backend
+
+name: rei505m-brainage
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - python=3.12
+  - pip
+  # numerics and tables
+  - numpy=2.5
+  - scipy=1.18
+  - pandas=3.1
+  # classic ML for the feature-based baseline (ridge, random forest, gradient boosting)
+  - scikit-learn=1.9
+  # EEG toolbox (PSD, filtering, plotting), the -base packages skip heavy 3D/Qt GUI extras
+  - mne-base=1.13
+  # plotting and notebooks
+  - matplotlib-base=3.11
+  - seaborn-base=0.13
+  - jupyterlab=4.6
+  - ipykernel
+  - ipywidgets
+  - tqdm
+  - pip:
+      - torch==2.14.1

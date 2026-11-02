@@ -1,0 +1,5 @@
+# Store text files with LF line endings in git so cloning is universal over different OS's:
+
+* text=auto
+*.pdf binary
+*.pt binary

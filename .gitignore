@@ -1,0 +1,26 @@
+# Our data: download it from canvas since we gitignore large data here
+
+# data setup
+data/
+eeg_starter/
+pre_processed/
+
+# safety net so recordings or model checkpoints never end up in git by accident
+*.pt
+*.pth
+*.ckpt
+
+# --- Training outputs: checkpoints, logs, figures. IMPORTANT FOR THE REPORT!!! All results are seeded in our notebooks ---
+outputs/
+
+# --- Python and Jupyter stuff ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+
+# --- OS and editor files that may appear, add more if you see any more remnants in your local dir ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
