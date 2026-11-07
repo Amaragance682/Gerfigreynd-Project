@@ -24,26 +24,26 @@ Already completed: **Ólafur created the GitHub repository and arranged GPU acce
 
 Update status from **To do → In progress → Review → Done**. The owner is responsible for delivering the output; others can help. Dates below are working targets unless marked as submission deadlines.
 
-| ID | Task | Owner | Depends on | Target | Done when | Status |
-|---|---|---|---|---|---|---|
-| T01 | Check submission details and instructor requirements | Sigríður | — | 7 Nov | Interim length, cutoff times and required instructor contact are recorded | Done |
-| T02 | Record agreed roles and available compute | Sigríður, with Amandine and Ólafur | — | 7 Nov | Roles, GitHub and GPU arrangements appear in this plan | Done |
-| T03 | Finish environment setup and start experiment/AI logs | Ólafur | — | 7 Nov | Everyone has repository access; a small GPU run works; environment and logs are saved | To do |
-| T04 | Audit labels and recording files | Sigríður | — | 7 Nov | File/label matching, shapes, durations and anomalies are documented | In Procress |
-| T05 | Verify training/validation/test splits | Sigríður | T04 | 7 Nov | No child crosses splits; identity assumptions and split distributions are recorded | In Procress |
-| T06 | Inspect EEG quality and produce example figures | Amandine | T04 | 8 Nov | Training EEG examples show quality issues, clipping, flatlines and padding checks | To do |
-| T07 | Document segment and processing rules | Amandine; Sigríður and Ólafur review | T05, T06 | 8 Nov | Channels, windows, quality rules, scaling and prediction aggregation are written down | To do |
-| T08 | Extract initial Hjorth/band-power features | Amandine | T03, T07 | 9 Nov | Small feature table contains valid values, recording IDs and feature definitions | To do |
-| T09 | Run initial regression baselines | Sigríður | T08 | 10 Nov | Median-age and simple feature-regression validation results are saved | To do |
-| T10 | Assemble, review and submit interim report | Sigríður assembles; everyone writes/reviews their contribution | T01, T04; T09 if available | **11 Nov deadline; review 10 Nov** | Contributions are combined, checked by everyone and submitted | To do |
-| T11 | Check and adapt supplied dataloader | Ólafur | T03, T07 | 10 Nov | Batch shapes/labels are correct; training crops and fixed evaluation windows work | To do |
-| T12 | Train compact CNN and save learning curves | Ólafur | T11 | 15 Nov | Small-run checks pass; settings, curves and best validation checkpoint are saved | To do |
-| T13 | Complete feature pipeline and baseline | Amandine: features/figures; Sigríður: regression | T09 | 15 Nov | Full feature pipeline, figures and baseline validation results are saved | To do |
-| T14 | Select and freeze model settings | Sigríður: baseline; Ólafur: CNN; Amandine reviews processing | T12, T13 | 16 Nov | Model, processing and aggregation settings are selected using validation only | To do |
-| T15 | Run final held-out comparison | Sigríður leads; Ólafur supplies CNN predictions/metrics | T14 | 16 Nov | Recording-level test predictions and a shared comparison table are saved | To do |
-| T16 | Interpret errors and produce comparison figures | Sigríður; Amandine supports signal interpretation | T15 | 18 Nov | Predicted-age and age/error plots are saved with observations and limitations | To do |
-| T17 | Write and review report sections throughout | Everyone; Sigríður coordinates assembly | Starts after T04; final results from T16 | 19 Nov | Each person has written their sections and reviewed another person's work | To do |
-| T18 | Verify reproducibility, package and submit | Ólafur: code/package; Sigríður: report/submission; everyone: review | T16, T17 | **20 Nov deadline; package 19 Nov** | Key results reproduce; reviewed PDF, code and required documentation are packaged and submitted | To do |
+| ID | Task | Owner | Partner / Reviewer | Depends on | Target | Done when | Status |
+|---|---|---|---|---|---|---|---|
+| T01 | Check submission details and instructor requirements | Sigríður | — | — | 7 Nov | Interim length, cutoff times and required instructor contact are recorded | Done |
+| T02 | Record agreed roles and available compute | Sigríður, with Amandine and Ólafur | Everyone | — | 7 Nov | Roles, GitHub and GPU arrangements appear in this plan | Done |
+| T03 | Finish environment setup and start experiment/AI logs | Ólafur | Sigríður | — | 7 Nov | Everyone has repository access; a small GPU run works; environment and logs are saved | To do |
+| T04 | Audit labels and recording files | Sigríður | x | — | 7 Nov | File/label matching, shapes, durations and anomalies are documented | Done |
+| T05 | Verify training/validation/test splits | Sigríður | x | T04 | 7 Nov | No child crosses splits; identity assumptions and split distributions are recorded | Done |
+| T06 | Inspect EEG quality and produce example figures | Amandine | Sigríður | T04 | 8 Nov | Training EEG examples show quality issues, clipping, flatlines and padding checks | To do |
+| T07 | Document segment and processing rules | Amandine; Sigríður and Ólafur review | Sigríður + Ólafur | T05, T06 | 8 Nov | Channels, windows, quality rules, scaling and prediction aggregation are written down | To do |
+| T08 | Extract initial Hjorth/band-power features | Amandine | Sigríður | T03, T07 | 9 Nov | Small feature table contains valid values, recording IDs and feature definitions | To do |
+| T09 | Run initial regression baselines | Sigríður | Ólafur | T08 | 10 Nov | Median-age and simple feature-regression validation results are saved | To do |
+| T10 | Assemble, review and submit interim report | Sigríður assembles; everyone writes/reviews their contribution | Everyone | T01, T04; T09 if available | **11 Nov deadline; review 10 Nov** | Contributions are combined, checked by everyone and submitted | To do |
+| T11 | Check and adapt supplied dataloader | Ólafur | Amandine | T03, T07 | 10 Nov | Batch shapes/labels are correct; training crops and fixed evaluation windows work | To do |
+| T12 | Train compact CNN and save learning curves | Ólafur | Amandine | T11 | 15 Nov | Small-run checks pass; settings, curves and best validation checkpoint are saved | To do |
+| T13 | Complete feature pipeline and baseline | Amandine: features/figures; Sigríður: regression | Ólafur | T09 | 15 Nov | Full feature pipeline, figures and baseline validation results are saved | To do |
+| T14 | Select and freeze model settings | Sigríður: baseline; Ólafur: CNN; Amandine reviews processing | Amandine | T12, T13 | 16 Nov | Model, processing and aggregation settings are selected using validation only | To do |
+| T15 | Run final held-out comparison | Sigríður leads; Ólafur supplies CNN predictions/metrics | Amandine | T14 | 16 Nov | Recording-level test predictions and a shared comparison table are saved | To do |
+| T16 | Interpret errors and produce comparison figures | Sigríður; Amandine supports signal interpretation | Ólafur | T15 | 18 Nov | Predicted-age and age/error plots are saved with observations and limitations | To do |
+| T17 | Write and review report sections throughout | Everyone; Sigríður coordinates assembly | Everyone | Starts after T04; final results from T16 | 19 Nov | Each person has written their sections and reviewed another person's work | To do |
+| T18 | Verify reproducibility, package and submit | Ólafur: code/package; Sigríður: report/submission; everyone: review | Everyone | T16, T17 | **20 Nov deadline; package 19 Nov** | Key results reproduce; reviewed PDF, code and required documentation are packaged and submitted | To do |
 
 **T10 assembly means combining everyone's supplied contributions, checking length and consistency, and circulating for review. Each person writes their own part. Submit on time even if preliminary model results are incomplete.**
 
