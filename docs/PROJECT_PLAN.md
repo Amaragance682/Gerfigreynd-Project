@@ -26,11 +26,11 @@ Update status from **To do → In progress → Review → Done**. The owner is r
 
 | ID | Task | Owner | Depends on | Target | Done when | Status |
 |---|---|---|---|---|---|---|
-| T01 | Check submission details and instructor requirements | Sigríður | — | 7 Nov | Interim length, cutoff times and required instructor contact are recorded | To do |
+| T01 | Check submission details and instructor requirements | Sigríður | — | 7 Nov | Interim length, cutoff times and required instructor contact are recorded | Done |
 | T02 | Record agreed roles and available compute | Sigríður, with Amandine and Ólafur | — | 7 Nov | Roles, GitHub and GPU arrangements appear in this plan | Done |
 | T03 | Finish environment setup and start experiment/AI logs | Ólafur | — | 7 Nov | Everyone has repository access; a small GPU run works; environment and logs are saved | To do |
-| T04 | Audit labels and recording files | Sigríður | — | 7 Nov | File/label matching, shapes, durations and anomalies are documented | To do |
-| T05 | Verify training/validation/test splits | Sigríður | T04 | 7 Nov | No child crosses splits; identity assumptions and split distributions are recorded | To do |
+| T04 | Audit labels and recording files | Sigríður | — | 7 Nov | File/label matching, shapes, durations and anomalies are documented | In Procress |
+| T05 | Verify training/validation/test splits | Sigríður | T04 | 7 Nov | No child crosses splits; identity assumptions and split distributions are recorded | In Procress |
 | T06 | Inspect EEG quality and produce example figures | Amandine | T04 | 8 Nov | Training EEG examples show quality issues, clipping, flatlines and padding checks | To do |
 | T07 | Document segment and processing rules | Amandine; Sigríður and Ólafur review | T05, T06 | 8 Nov | Channels, windows, quality rules, scaling and prediction aggregation are written down | To do |
 | T08 | Extract initial Hjorth/band-power features | Amandine | T03, T07 | 9 Nov | Small feature table contains valid values, recording IDs and feature definitions | To do |
