@@ -58,3 +58,14 @@ outputs/            checkpoints, logs, figures (git-ignored, created when needed
   validation split.
 - **AI use must be documented** (course honor code): mark AI-generated files if made and log each session  
   in[docs/AI_USAGE.md](docs/AI_USAGE.md). AI must not write any part of the report!!!
+
+
+### macOS: PyTorch crashes with OpenMP Error #15
+
+In our macOS environment, importing torch crashed because multiple
+OpenMP runtimes were loaded. Switching OpenBLAS to its pthreads
+build resolved it:
+
+    conda install -n rei505m-brainage -c conda-forge "libopenblas=*=*pthreads*"
+
+Restart the notebook kernel after installation.
