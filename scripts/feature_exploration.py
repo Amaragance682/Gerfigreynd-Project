@@ -6,10 +6,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import welch
 
-
-ROOT = Path.cwd().parent #Gervigreind-Prjoect
+#os.getcwd
+ROOT = Path(__file__).resolve().parents[1] #Gervigreind-Prjoect
 DATA = ROOT/"data"
 OUT = ROOT/"feature_selection"
+os.makedirs(OUT, exist_ok=True )
 
 label_df = pd.read_csv(DATA/"anon_codex_age_sex.csv")
 eeg_train = torch.load(DATA/"Segments_h1k_train.pt")
@@ -24,7 +25,8 @@ plt.hist(label_df["Quantized Age (years)"], bins = np.arange(0,18,1))
 plt.xlabel("Age")
 plt.ylabel("Count")
 plt.title("Participant age distribution")
-plt.show()
+#plt.savefig(OUT/"age_dist.pdf")
+#plt.show()
 
 
 
@@ -73,7 +75,7 @@ def extract_band_power(signal, stage_intervals, sfreq = 64, window_s=60, step_s=
                                      noverlap=(2*sfreq), scaling="density")
 
             def power_between(low, high):
-                inside = ((frequencies>low & frequencies<high))
+                inside = ((frequencies>low) & (frequencies<high))
                 f = np.concatenate(([low], frequencies[inside], [high]))
                 p = np.interp(f, frequencies, psd)
                 return np.trapezoid(p, f)
@@ -95,12 +97,11 @@ feature_columns = [f"{band}_relative" for band in bands]
 
 stages = {"N1": (0, 300), "N2": (300, 900)}
 
-eeg_paths = DATA/"pre_processed"
 
-selected = label_df.groupby("age_group", observed=True).sample(n=1, random_sate=12)
+selected = label_df.groupby("age_group", observed=True).sample(n=2, random_state=12)
 print(selected)
 
-file_paths = [os.path.join(DATA/"pre_processed", f"{name}.pt") for name in selected["Anon. Filename"]]
+file_paths = [ DATA/"pre_processed"/f"{Path(name).stem}.pt" for name in selected["Anon. Filename"]]
 recordings = {path: torch.load(path, map_location="cpu", weights_only=True).detach().cpu().numpy()
               for path in file_paths}
 
@@ -111,13 +112,14 @@ colours = plt.get_cmap("tab20", 20)
 for stage, interval in stages.items():
 
     fig, axes = plt.subplots(
-        2, 2,
-        figsize=(14, 9),
+        (len(file_paths) + 1) // 2, 2,
+        figsize=(14, 3.5 * ((len(file_paths) + 1) // 2)),
+        squeeze=False,
         sharex=True,
         sharey=True,
     )
 
-    for ax, path in zip(axes.flat, files):
+    for ax, path in zip(axes.flat, file_paths):
         values = recordings[path]
 
         for channel_index in eeg_indices:
@@ -146,32 +148,26 @@ for stage, interval in stages.items():
                 label=f"Channel {channel_index + 1}",
             )
 
-        match = l.loc[
-            labels["recording_id"] == path.stem,
-            "Quantized Age (years)",
-        ]
+        match = label_df.loc[label_df["Anon. Filename"] == f"{path.stem}.edf", "Quantized Age (years)",]
 
-        age_text = (
-            f"{match.iloc[0]:.2f} years"
-            if len(match) == 1
-            else "Age match missing or duplicated"
-        )
+        age_text = (f"{match.iloc[0]:.2f} years" if len(match) == 1 else "Age match missing or duplicated")
 
         ax.set_title(f"{path.stem}\n{age_text}")
+        ax.tick_params(axis="x", labelbottom=True)
         ax.set_ylabel("Relative band power")
         ax.set_ylim(0, 1)
         ax.grid(alpha=0.25)
 
+    for ax in list(axes.flat)[len(file_paths):]:
+        ax.set_visible(False)
+
     handles, legend_labels = axes.flat[0].get_legend_handles_labels()
 
-    fig.legend(
-        handles,
-        legend_labels,
-        loc="center left",
-        bbox_to_anchor=(0.86, 0.5),
-        fontsize=8,
-    )
-
+    fig.legend(handles,legend_labels, loc="center left", bbox_to_anchor=(0.86, 0.5),fontsize=8,)
     fig.suptitle(f"{stage}: median band power across EEG channels")
-    fig.tight_layout(rect=[0, 0, 0.86, 0.95])
-    plt.show()
+    fig.tight_layout(rect=[0, 0, 0.85, 0.96])
+    fig.savefig(
+    OUT / f"{stage}_band_power.png",
+    dpi=300,
+    bbox_inches="tight")
+    #plt.show()
