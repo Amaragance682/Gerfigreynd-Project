@@ -9,7 +9,7 @@ from scipy.signal import welch
 #os.getcwd
 ROOT = Path(__file__).resolve().parents[1] #Gervigreind-Prjoect
 DATA = ROOT/"data"
-OUT = ROOT/"feature_selection"
+OUT = ROOT/"feature_extraction_out"
 os.makedirs(OUT, exist_ok=True )
 
 label_df = pd.read_csv(DATA/"anon_codex_age_sex.csv")
