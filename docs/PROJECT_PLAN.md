@@ -43,7 +43,7 @@ Update status from **To do → In progress → Review → Done**. The owner is r
 | T15 | Run final held-out comparison |Ólafur supplies CNN predictions/metrics | Amandine | T14 | 16 Nov | Recording-level test predictions and a shared comparison table are saved | To do |
 | T16 | Interpret errors and produce comparison figures | Sigríður; Amandine supports signal interpretation | Ólafur | T15 | 18 Nov | Predicted-age and age/error plots are saved with observations and limitations | To do |
 | T17 | Write and review report sections throughout | Everyone | Everyone | Starts after T04; final results from T16 | 19 Nov | Each person has written their sections and reviewed another person's work | To do |
-| T18 | Verify reproducibility, package and submit | Ólafur: code/package; Sigríður: report/submission; everyone: review | Everyone | T16, T17 | **20 Nov deadline; package 19 Nov** | Key results reproduce; reviewed PDF, code and required documentation are packaged and submitted | To do |
+| T18 | Verify reproducibility, package and submit | Ólafur: code/package and report/submission; everyone: review | Everyone | T16, T17 | **20 Nov deadline; package 19 Nov** | Key results reproduce; reviewed PDF, code and required documentation are packaged and submitted | To do |
 
 **T10 assembly means combining everyone's supplied contributions, checking length and consistency, and circulating for review. Each person writes their own part. Submit on time even if preliminary model results are incomplete.**
 

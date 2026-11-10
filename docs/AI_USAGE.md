@@ -39,3 +39,22 @@ log is the source for the report's "AI statement" section and its appendix on AI
 fixed check_setup.py.
 
 **Transcript:** docs/ai_transcripts/2026-11-02_oli_claude-code_setup.md
+
+## 2026-11-08–09 — Feature exploration assistance
+**Prompts (paraphrased; verbatim in the transcript):** 
+1. Why is scipy.signal.welch not working? 
+2. Do a spell check, and check if all variable names are correct.
+3. FileNotFoundError, how do I use just the name not .edf with pathlib?
+4. What does it mean if stage sleep is N1 but relative band power is delta? Does delta not represent deep sleep?
+5. Help with fixing subplot when I have more participants.
+
+**What the AI did:**
+-Help diagnosing the SciPy interpreter issue
+- Reviewing missing variables and typos, correcting filename extensions and metadata lookups
+- Helped with saving figures and adjusting the subplot grid.
+- Codex explained relative band power. It identified that the hardcoded N1/N2 intervals require verification against actual sleep annotations.
+- Saving figures, and adjusting the subplot layout for two recordings per age group.
+
+**Our changes:**
+- Fixed the spelling mistakes, scipy problem, subplot according to AI suggestion.
+- Look more into other features and different participants to see better how the PSD is repressenting the data. Tried also different window and step size. 
