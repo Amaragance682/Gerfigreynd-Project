@@ -4,6 +4,7 @@
 data/
 eeg_starter/
 pre_processed/
+feature_extraction_out/
 
 # safety net so recordings or model checkpoints never end up in git by accident
 *.pt

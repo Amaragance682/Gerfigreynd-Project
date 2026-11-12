@@ -58,3 +58,30 @@ fixed check_setup.py.
 **Our changes:**
 - Fixed the spelling mistakes, scipy problem, subplot according to AI suggestion.
 - Look more into other features and different participants to see better how the PSD is repressenting the data. Tried also different window and step size. 
+
+
+### 2026-11-12: Óli, Claude Code (Claude Opus 5.5) - Baseline setup 
+
+**Prompts (paraphrased; verbatim in the transcript):**
+1. Discussion on how age imbalance affects the model
+2. Sliding windows explanations and implementation help in code
+3. one channel vs all channels distinction and ridgeCV implementation
+4. help with finalizing the baseline model as well as sanity checks
+5. interim report alignment with the data and baseline
+
+**What the AI did:**
+- Explained the task as regression on age, the inputs (hand-crafted features for the baseline, raw
+  EEG for the CNN), and how age imbalance affects a regressor. It showed that the imbalance is much
+  smaller on a log(age) scale.
+- Co-wrote the baseline code: trimming zero padding away, 30 s windows suggestion, Hjorth and band-power 
+  features per channel,  the median over windows per child, ridge regression on log(age) and per-group and
+  age-balanced MAE.
+- Wrote and tested EDA plotting code (age histograms, amplitude vs. age). Not used in the report, just 
+  visual material
+- Registered the Jupyter kernel, diagnosed why the editor couldn't list kernels (Code - OSS blocks an
+  extension API), and gave the configuration fix.
+- The dataset statistics quoted in the interim (age-group counts, split counts, ρ ≈ −0.75) were
+  computed by the AI in scratch scripts outside the repo.
+
+**Our changes:** 
+Wrote docs/Baseline_blueprint.md then wrote and ran notebooks/01_baseline.ipynb
