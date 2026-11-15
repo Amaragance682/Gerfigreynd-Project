@@ -82,6 +82,37 @@ fixed check_setup.py.
   extension API), and gave the configuration fix.
 - The dataset statistics quoted in the interim (age-group counts, split counts, ρ ≈ −0.75) were
   computed by the AI in scratch scripts outside the repo.
+- helped with the interim report with suggestions, overview and corrections of facts. Help with condensing everything into a single page.
+- oli didnt notice that sigga had pushed changes to github so claude helped merge and explain the pushes
 
 **Our changes:** 
-Wrote docs/Baseline_blueprint.md then wrote and ran notebooks/01_baseline.ipynb
+- Wrote docs/Baseline_blueprint.md then wrote and ran notebooks/01_baseline.ipynb
+
+
+### 2026-11-15: Óli, Claude Code (Claude Opus 5.5) - Convolutional neural network setup and training
+
+**Prompts (paraphrased; verbatim in the transcript):**
+1. Continue the CNN plan from the previous session: show step 1, data loading and random crops.
+2. Explain how random_starts and the other loader functions work, and why they matter.
+3. What is the next step after the loader and is there something that may have been missed?
+4. CNN explanation when it comes to processing brain age in children and why it was chosen.
+5. Accidentally started another graphically intesive process while running training, did it matter?
+6. Summarize everything we did and why in this session.
+
+**What the AI did:**
+- Read figure 3 of the assignment. Checked recording lengths, zero padding, per-channel amplitude
+  and clipping on the training set with scratch scripts outside the repo, then compared it with current results.
+- Wrote the data part of scripts/train_cnn.py: loading a split onto the GPU, the global scale,
+  random 16 s crops from the non-padded signal, epoch batches, fixed evaluation windows, and the
+  `--check` data checks. Tested it on GPU and CPU.
+- Overviewed and corrected each lodader function along with a small worked example for each.
+- Helped develop the ConvBlock and BrainAgeCNN classes for the model and its checks (check_model), as well as explained   where it departs from figure 3.
+- typo fixes and corrections on code comments
+- Ran overfit checks on all 20 children, full runs with and without batch norm, a run with cosine learning-decay
+- Made the recomendation to use a fixed amount of epochs instead of just picking the best epoch.
+- helped summarize all changes made since the last session for upcoming team meeting.
+
+**Our changes:** 
+- coworked the loader, model and checks into scripts/train_cnn.py with claude for the upcoming training notebook
+- caught issues early that may have affected the training notebook
+- epoch handling pre-training 
