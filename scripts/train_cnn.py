@@ -2,6 +2,7 @@ import argparse
 import time
 from pathlib import Path
 import pandas as pd
+import numpy as np
 import torch
 from torch import nn
 
@@ -10,6 +11,8 @@ DATA = ROOT / "data"
 FS = 64 # samples/second
 N_SAMPLES = 901 * FS # the split which accounts for 0-901 seconds
 WIN = 16*FS # samples per CNN input window
+
+OUTPUTS = ROOT / "outputs"
 
 def load_split(split, device): 
     seg = torch.load(DATA / f"segments_h1k_{split}.pt", weights_only=True)
@@ -109,6 +112,100 @@ class BrainAgeCNN(nn.Module):
 
 
 
+EDGES = [0, 1, 3, 6, 12, np.inf]   # the age groups of notebooks/01_baseline.ipynb
+GROUPS = ["<1", "1-3", "3-6", "6-12", "12+"]
+
+
+def mae_scores(age, pred):
+    # MAE, and age-balanced MAE: the mean of the 5 age groups' MAEs
+    err = pd.Series(np.abs(pred - age))
+    per_group = err.groupby(pd.cut(age, EDGES, right=False, labels=GROUPS), observed=False).mean()
+    return err.mean(), per_group.mean()
+
+
+def predict_children(model, windows, owner, scale, n_children):
+    # every window of every child -> median of the predicted log(age) per child -> years
+    model.eval()  # always predict in eval mode; train mode normalises each child's amplitude away
+    with torch.no_grad():
+        log_pred = torch.cat([model(w.float() / scale) for w in windows.split(512)])
+    medians = torch.stack([log_pred[owner == i].quantile(0.5) for i in range(n_children)])
+    return medians.exp().cpu().numpy()
+
+
+def recompute_bn(model, X, lengths, scale, crops_per_child, batch_size, seed):
+    # Batch-norm statistics averaged over one whole epoch of training crops, the same crops every time.
+    # The usual running averages mostly reflect the last few batches, which moved val MAE by 0.07.
+    for m in model.modules():
+        if isinstance(m, nn.BatchNorm2d):
+            m.reset_running_stats()
+            m.momentum = None  # a plain average over every batch since the reset
+    gen = torch.Generator(device=X.device).manual_seed(seed)
+    model.train()
+    with torch.no_grad():
+        for idx in epoch_batches(len(lengths), crops_per_child, batch_size, gen):
+            model(crop(X, idx, random_starts(lengths, idx, gen)).float() / scale)
+    model.eval()
+
+
+def train(device, run_name, epochs=60, lr=1e-3, weight_decay=1e-2, dropout=0.3,
+          crops_per_child=8, batch_size=64, seed=0, overfit=False):
+    settings = {"epochs": epochs, "lr": lr, "weight_decay": weight_decay, "dropout": dropout,
+                "crops_per_child": crops_per_child, "batch_size": batch_size, "seed": seed,
+                "overfit": overfit, "window_s": WIN // FS}
+    torch.manual_seed(seed)
+    gen = torch.Generator(device=device).manual_seed(seed)
+    out = OUTPUTS / run_name
+    out.mkdir(parents=True, exist_ok=True)
+
+    ids, X, lengths, ages = load_split("train", device)
+    scale = global_scale(X, lengths)
+    if overfit:
+        # 20 training children spread over the age range, each cut to one fixed window (the first 16 s of N2).
+        # A working pipeline memorises these 20 inputs: the loss goes to about 0 and predictions match the ages.
+        keep = torch.argsort(ages)[torch.linspace(0, len(ids) - 1, 20).long()]
+        ids, ages = [ids[i] for i in keep.tolist()], ages[keep]
+        X, lengths = X[keep, :, 300 * FS:300 * FS + WIN], torch.full_like(lengths[keep], WIN)
+        val_ids, Xv, lv, val_ages = ids, X, lengths, ages
+    else:
+        val_ids, Xv, lv, val_ages = load_split("val", device)
+    windows, owner = eval_windows(Xv, lv)
+    val_age = val_ages.cpu().numpy()
+
+    model = BrainAgeCNN(dropout=dropout).to(device)
+    with torch.no_grad():
+        model.head[-1].bias.fill_(torch.log(ages).mean())  # start by predicting the average log(age)
+    opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
+    sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=epochs)  # lr falls smoothly to 0
+
+    log = []
+    for epoch in range(1, epochs + 1):
+        t0 = time.time()
+        model.train()
+        losses = []
+        for idx in epoch_batches(len(ids), crops_per_child, batch_size, gen):
+            x = crop(X, idx, random_starts(lengths, idx, gen)).float() / scale
+            loss = nn.functional.huber_loss(model(x), torch.log(ages[idx]))
+            opt.zero_grad()
+            loss.backward()
+            opt.step()
+            losses.append(loss.item())
+        lr_used = sched.get_last_lr()[0]
+        sched.step()
+
+        # val is scored every epoch for the learning curve only, never to pick an epoch
+        recompute_bn(model, X, lengths, scale, crops_per_child, batch_size, seed)
+        pred = predict_children(model, windows, owner, scale, len(val_ids))
+        mae, bal = mae_scores(val_age, pred)
+        log.append({"epoch": epoch, "train_loss": np.mean(losses), "val_MAE": mae,
+                    "val_balanced_MAE": bal, "lr": lr_used, "seconds": time.time() - t0})
+        pd.DataFrame(log).to_csv(out / "learning_curve.csv", index=False)  # every epoch, in case a run dies
+        print(f"epoch {epoch:3d}  train loss {np.mean(losses):.4f}  val MAE {mae:.2f}  "
+              f"balanced {bal:.2f}  lr {lr_used:.1e}  ({time.time() - t0:.1f} s)")
+
+    # the result is the model after the last epoch, with the BN statistics just recomputed
+    torch.save({"model": model.state_dict(), "scale": scale, "settings": settings}, out / "final.pt")
+    pd.DataFrame({"id": val_ids, "age": val_age, "pred": pred}).to_csv(out / "val_predictions.csv", index=False)
+    print(f"final val MAE {mae:.2f}, balanced {bal:.2f}; saved to {out}")
 
 
 
@@ -218,8 +315,17 @@ def check_model(device):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true", help="run the data checks and stop")
+    parser.add_argument("--overfit", action="store_true", help="sanity check: memorise 20 training children")
+    parser.add_argument("--train", action="store_true", help="train on train, score on val, save to outputs/")
+    parser.add_argument("--epochs", type=int, default=60)
+    parser.add_argument("--run-name", default="cnn16s")
     args = parser.parse_args()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu") # cuda for nvidia gpus, cpu fallback
     if args.check:
         check_data(device)
         check_model(device)
+    if args.overfit:
+        train(device, "overfit", epochs=args.epochs, dropout=0.0, weight_decay=0.0,
+              crops_per_child=32, overfit=True)
+    if args.train:
+        train(device, args.run_name, epochs=args.epochs)
