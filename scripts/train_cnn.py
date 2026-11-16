@@ -97,7 +97,7 @@ class BrainAgeCNN(nn.Module):
         self.blocks = nn.Sequential(*blocks)
         t_out = WIN // 2 ** len(widths)
 
-        self.fc = nn.Sequential(nn.Conv2d(n_in, n_features, (1, t_out)), nn.ReLU())
+        self.fc = nn.Sequential(nn.Conv2d(n_in, n_features, (1, t_out)), nn.BatchNorm2d(n_features), nn.ReLU()) # this was collapse prone killing all 64 z feature
         self.head = nn.Sequential(nn.Dropout(dropout), nn.Linear(n_features, 1))
 
     def features(self, x):
