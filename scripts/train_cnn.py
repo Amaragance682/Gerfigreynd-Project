@@ -117,19 +117,34 @@ GROUPS = ["<1", "1-3", "3-6", "6-12", "12+"]
 
 
 def mae_scores(age, pred):
-    # MAE, and age-balanced MAE: the mean of the 5 age groups' MAEs
+    # MAE, and age-balanced MAE: the mean of the 5 age groups MAEs
     err = pd.Series(np.abs(pred - age))
     per_group = err.groupby(pd.cut(age, EDGES, right=False, labels=GROUPS), observed=False).mean()
     return err.mean(), per_group.mean()
 
 
-def predict_children(model, windows, owner, scale, n_children):
-    # every window of every child -> median of the predicted log(age) per child -> years
-    model.eval()  # always predict in eval mode; train mode normalises each child's amplitude away
+def window_log_ages(model, windows, scale):
+    # predict log(age) for every window
+    model.eval()
     with torch.no_grad():
-        log_pred = torch.cat([model(w.float() / scale) for w in windows.split(512)])
-    medians = torch.stack([log_pred[owner == i].quantile(0.5) for i in range(n_children)])
+        return torch.cat([
+            model(w.float() / scale)
+            for w in windows.split(512)
+        ])
+
+
+def child_ages(log_pred, owner, n_children):
+    # median log(age) across each child's windows, converted to years
+    medians = torch.stack([
+        log_pred[owner == i].quantile(0.5)
+        for i in range(n_children)
+    ])
     return medians.exp().cpu().numpy()
+
+
+def predict_children(model, windows, owner, scale, n_children):
+    log_pred = window_log_ages(model, windows, scale)
+    return child_ages(log_pred, owner, n_children)
 
 
 def recompute_bn(model, X, lengths, scale, crops_per_child, batch_size, seed):
@@ -194,13 +209,31 @@ def train(device, run_name, epochs=60, lr=1e-3, weight_decay=1e-2, dropout=0.3,
 
         # val is scored every epoch for the learning curve only, never to pick an epoch
         recompute_bn(model, X, lengths, scale, crops_per_child, batch_size, seed)
-        pred = predict_children(model, windows, owner, scale, len(val_ids))
+
+        log_pred = window_log_ages(model, windows, scale)
+        val_loss = nn.functional.huber_loss(
+            log_pred, torch.log(val_ages[owner])
+        ).item()
+        pred = child_ages(log_pred, owner, len(val_ids))
+
         mae, bal = mae_scores(val_age, pred)
-        log.append({"epoch": epoch, "train_loss": np.mean(losses), "val_MAE": mae,
-                    "val_balanced_MAE": bal, "lr": lr_used, "seconds": time.time() - t0})
-        pd.DataFrame(log).to_csv(out / "learning_curve.csv", index=False)  # every epoch, in case a run dies
-        print(f"epoch {epoch:3d}  train loss {np.mean(losses):.4f}  val MAE {mae:.2f}  "
-              f"balanced {bal:.2f}  lr {lr_used:.1e}  ({time.time() - t0:.1f} s)")
+        log.append({
+            "epoch": epoch,
+            "train_loss": np.mean(losses),
+            "val_loss": val_loss,
+            "val_MAE": mae,
+            "val_balanced_MAE": bal,
+            "lr": lr_used,
+            "seconds": time.time() - t0,
+        })
+        pd.DataFrame(log).to_csv(out / "learning_curve.csv", index=False)
+
+        print(
+            f"epoch {epoch:3d}  train loss {np.mean(losses):.4f}  "
+            f"val loss {val_loss:.4f}  val MAE {mae:.2f}  "
+            f"balanced {bal:.2f}  lr {lr_used:.1e}  "
+            f"({time.time() - t0:.1f} s)"
+        )
 
     # the result is the model after the last epoch, with the BN statistics just recomputed
     torch.save({"model": model.state_dict(), "scale": scale, "settings": settings}, out / "final.pt")
@@ -208,6 +241,58 @@ def train(device, run_name, epochs=60, lr=1e-3, weight_decay=1e-2, dropout=0.3,
     print(f"final val MAE {mae:.2f}, balanced {bal:.2f}; saved to {out}")
 
 
+def predict_test(device, run_name):
+    # run once per frozen model, after freezing the model settings
+    run = OUTPUTS / run_name
+    ck = torch.load(run / "final.pt", map_location=device, weights_only=True)
+
+    model = BrainAgeCNN(dropout=ck["settings"]["dropout"]).to(device)
+    model.load_state_dict(ck["model"])
+
+    # Validate the checkpoint before loading any test data.
+    for split in ("val", "test"):
+        ids, X, lengths, ages = load_split(split, device)
+        windows, owner = eval_windows(X, lengths)
+        pred = predict_children(
+            model, windows, owner, ck["scale"], len(ids)
+        )
+
+        if split == "val":
+            saved = pd.read_csv(
+                run / "val_predictions.csv", dtype={"id": str}
+            )
+
+            if saved["id"].tolist() != ids:
+                raise RuntimeError(
+                    "Validation IDs do not match val_predictions.csv."
+                )
+
+            gap = np.abs(saved["pred"].to_numpy() - pred).max()
+            if not np.isfinite(gap) or gap >= 1e-3:
+                raise RuntimeError(
+                    "final.pt does not reproduce val_predictions.csv: "
+                    f"largest difference {gap:.6g} years."
+                )
+
+            print(
+                f"{run_name}: final.pt reproduces val_predictions.csv "
+                f"(largest difference {gap:.1e} years)"
+            )
+        else:
+            destination = run / "test_predictions.csv"
+            pd.DataFrame({
+                "id": ids,
+                "age": ages.cpu().numpy(),
+                "pred": pred,
+            }).to_csv(destination, index=False)
+
+            print(
+                f"{run_name}: {len(ids)} test predictions "
+                f"saved to {destination}"
+            )
+
+        # release this split's tensors before loading the next one.
+        del X, lengths, ages, windows, owner
 
 
 
@@ -311,21 +396,49 @@ def check_model(device):
 
 
 
-
+# AI generated for the most part:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--check", action="store_true", help="run the data checks and stop")
-    parser.add_argument("--overfit", action="store_true", help="sanity check: memorise 20 training children")
-    parser.add_argument("--train", action="store_true", help="train on train, score on val, save to outputs/")
+    parser.add_argument(
+        "--check", action="store_true",
+        help="run the data and model checks",
+    )
+    parser.add_argument(
+        "--overfit", action="store_true",
+        help="sanity check: memorise 20 training children",
+    )
+    parser.add_argument(
+        "--train", action="store_true",
+        help="train on train, score on val, save to outputs/",
+    )
     parser.add_argument("--epochs", type=int, default=60)
     parser.add_argument("--run-name", default="cnn16s")
+    parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument(
+        "--predict-test", action="store_true",
+        help="reload final.pt and predict test once, after the freeze",
+    )
     args = parser.parse_args()
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu") # cuda for nvidia gpus, cpu fallback
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     if args.check:
         check_data(device)
         check_model(device)
+
     if args.overfit:
-        train(device, "overfit", epochs=args.epochs, dropout=0.0, weight_decay=0.0,
-              crops_per_child=32, overfit=True)
+        train(
+            device, "overfit",
+            epochs=args.epochs,
+            dropout=0.0,
+            weight_decay=0.0,
+            crops_per_child=32,
+            seed=args.seed,
+            overfit=True,
+        )
+
     if args.train:
-        train(device, args.run_name, epochs=args.epochs)
+        train(device, args.run_name, epochs=args.epochs, seed=args.seed)
+
+    if args.predict_test:
+        predict_test(device, args.run_name)

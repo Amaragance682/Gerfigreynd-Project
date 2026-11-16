@@ -116,3 +116,73 @@ fixed check_setup.py.
 - coworked the loader, model and checks into scripts/train_cnn.py with claude for the upcoming training notebook
 - caught issues early that may have affected the training notebook
 - epoch handling pre-training 
+
+
+### 2026-11-15 (evening): Óli, Claude Code (Claude Opus 5.5) - CNN training code and first full run
+
+**Prompts (paraphrased; verbatim in the transcript):**
+1. Give an overview of the remaining CNN steps and why each one matters.
+2. Run the 20-child overfit check and the full training run, write pseudocode for the results
+   notebook, and explain how to save ridge's per-child predictions in 01_baseline and why.
+
+**What the AI did:**
+- Wrote the training code for scripts/train_cnn.py: mae_scores, predict_children, recompute_bn
+  (batch-norm statistics recomputed over one fixed epoch of training crops before every validation),
+  train() (60 epochs, AdamW, cosine learning rate, Huber loss on log(age), final model saved, no
+  best-epoch selection) and the --overfit, --train, --epochs and --run-name options.
+- Changed the overfit check to one fixed 16 s window per child, after showing that random crops of
+  20 children cannot be memorised (MAE 0.46 years after 150 epochs, against 0.01 with fixed windows).
+- Ran the overfit check and a full 60-epoch run on a scratch copy of the script. These scratch
+  results are not used in the report.
+- Wrote the two lines in 01_baseline.ipynb that save ridge's per-child validation predictions in the
+  same format as the CNN's, and explained why per-child predictions are needed (paired comparison,
+  figures, test predictions).
+- Wrote pseudocode for notebooks/02_cnn_results.ipynb and tested a runnable version on the scratch
+  outputs.
+
+**Our changes:**
+- Typed the training code into scripts/train_cnn.py and added the save lines to 01_baseline.ipynb.
+- Ran the overfit check from the repo (commit bd7627d).
+
+**Transcript:** docs/ai_transcripts/2026-11-15_oli_claude-code_cnn-training.md
+
+
+### 2026-11-16: Óli, Claude Code (Claude Opus 5.5) - CNN fix, comparison with the baseline and notebook troubleshooting
+
+**Prompts (paraphrased; verbatim in the transcript):**
+1. Should we build an N2-only model for the sigma and spindle features, or a model for children
+   under 6 only? Is the validation MAE of 0.67 suspiciously good? (With screenshots of a teammate's
+   feature plan.)
+2. Why does --overfit fail (ModuleNotFoundError)? Report priorities, a teammate's ECG model plans,
+   and what the "0–15 cut" means.
+3. Inspect the two runs, and how best to compare the CNN with the updated baseline.
+4. The baseline notebook seems stuck on its last cell.
+5. Export this transcript and draft this log entry.
+
+**What the AI did:**
+- Ran scratch experiments to answer the questions (not used in the report):
+  - ridge on N2-only, pre-N2-only and single-channel features, with all 20 channels ranked;
+  - the CNN trained on N2 only and on children under 6;
+  - models trained on all ages vs. under-6s only, compared on the same under-6 children;
+  - checks that no child appears in two splits, and how coarsely ages are rounded.
+- Read the assignment PDF for the age range and the suggested starting baseline.
+- Found that the CNN's fully connected layer had lost most of its features (11 of 64 alive; all 64
+  dead in the under-6 run). Proposed a one-line fix (batch norm after that layer), and tested it with
+  --check, --overfit and a full scratch run.
+- Inspected our overfit and full runs. Recomputed ridge in a scratch script and compared the two
+  models on validation with a stratified paired bootstrap.
+- Diagnosed why 01_baseline.ipynb stalled: the editor stopped sending cells after the cell with a
+  tqdm.auto progress-bar widget. Suggested the plain tqdm progress bar, and ran a copy of the notebook
+  headless to confirm the code itself works. Queried the notebook's kernel read-only to see which
+  cells had run.
+- Advised on a teammate's plan for an ECG model (separate script, same splits and prediction format)
+  and on the proposed 0–15 age cut (keep all ages).
+- Recreated the transcript exporter (outside the repo) and exported this session.
+- No report text was written in this session.
+
+**Our changes:**
+- Added the batch-norm line to scripts/train_cnn.py.
+- Ran --overfit and --train (outputs/cnn16s).
+- Switched 01_baseline.ipynb to the plain tqdm progress bar, reran it and committed.
+
+**Transcript:** docs/ai_transcripts/2026-11-16_oli_claude-code_cnn-fix-and-comparison.md
