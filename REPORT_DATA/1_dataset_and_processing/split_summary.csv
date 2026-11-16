@@ -1,0 +1,4 @@
+split,unique_recordings,matched_label_rows,age_min,age_median,age_mean,age_max,Female,Male
+train,825,825,0.155479,2.975479,4.588638,16.009465,394,431
+val,103,103,0.155479,2.073973,3.782678,16.009465,49,54
+test,104,104,0.155479,2.629294,4.478278,16.009465,56,48
