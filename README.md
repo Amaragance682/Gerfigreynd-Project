@@ -1,6 +1,6 @@
 # Brain age from children's sleep EEG
 
-**Team:** Óli, Sigga, Amadine.
+**Team:** Óli, Sigga, AmaNdine.
 
 | Date | Deliverable |
 |---|---|
