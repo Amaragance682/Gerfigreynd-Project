@@ -12,7 +12,7 @@ feature_extraction_out/
 *.ckpt
 
 # --- Training outputs: checkpoints, logs, figures. IMPORTANT FOR THE REPORT!!! All results are seeded in our notebooks ---
-outputs/
+
 
 # --- Python and Jupyter stuff ---
 __pycache__/

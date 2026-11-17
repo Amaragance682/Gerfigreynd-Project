@@ -87,7 +87,7 @@ Submit the interim on time even if the CNN is still being developed. Confirm the
 
 - Keep each child's recordings/windows in one split. Start with the supplied 825/103/104 split; confirm whether filenames uniquely identify children.
 - Select features/settings using training and validation only. Fit scalers on training data; keep the test set for the frozen comparison.
-- Start with 16-second segments as a proposal. Exclude padded/invalid regions; use fixed validation/test windows and average predictions per recording.
+- Start with 16-second segments as a proposal. Exclude padded/invalid regions; use fixed validation/test windows and median predictions per recording.
 - Compare models on the same recordings and comparable EEG coverage. Main metric: **MAE in years per recording**; also save RMSE, R² and errors versus age.
 - Save settings, seeds, predictions and experiment results. Check the small pipeline before full training.
 
