@@ -88,7 +88,7 @@ class BrainAgeCNN(nn.Module):
     # figure 3 of the assignment along with a linear head that predicts log(age):
     #  (B, 20, WIN) -> 3 ConvBlocks -> fully connected layer per channel -> max over channels -> z -> log(age)
 
-    def __init__(self, widths=(16, 32, 64), n_features=64, dropout=0.3):
+    def __init__(self, widths=(16, 32, 64), n_features=64, dropout=0.3, fc_bn=True):
         super().__init__()
         blocks, n_in = [], 1
         for w in widths:
@@ -97,7 +97,10 @@ class BrainAgeCNN(nn.Module):
         self.blocks = nn.Sequential(*blocks)
         t_out = WIN // 2 ** len(widths)
 
-        self.fc = nn.Sequential(nn.Conv2d(n_in, n_features, (1, t_out)), nn.BatchNorm2d(n_features), nn.ReLU()) # this was collapse prone killing all 64 z feature
+        fc_layers = [nn.Conv2d(n_in, n_features, (1, t_out))]
+        if fc_bn:  # without it the fc ReLUs died during training (experiment exp_no_fc_bn)
+            fc_layers.append(nn.BatchNorm2d(n_features))
+        self.fc = nn.Sequential(*fc_layers, nn.ReLU())
         self.head = nn.Sequential(nn.Dropout(dropout), nn.Linear(n_features, 1))
 
     def features(self, x):
@@ -133,13 +136,13 @@ def window_log_ages(model, windows, scale):
         ])
 
 
-def child_ages(log_pred, owner, n_children):
+def child_ages(log_pred, owner, n_children, log_target=True):
     # median log(age) across each child's windows, converted to years
     medians = torch.stack([
         log_pred[owner == i].quantile(0.5)
         for i in range(n_children)
     ])
-    return medians.exp().cpu().numpy()
+    return (medians.exp() if log_target else medians).cpu().numpy()   # a years models output is already in years
 
 
 def predict_children(model, windows, owner, scale, n_children):
@@ -161,60 +164,122 @@ def recompute_bn(model, X, lengths, scale, crops_per_child, batch_size, seed):
             model(crop(X, idx, random_starts(lengths, idx, gen)).float() / scale)
     model.eval()
 
+PARTS = {"all": (0, N_SAMPLES), "preN2": (0, 300 * FS), "N2": (300 * FS, N_SAMPLES)}
+
+
+def keep_part(X, lengths, part):
+    # only one part of the night (0-300 s pre-N2, 300-901 s N2). Lengths stay the end of the real signal
+    start, end = PARTS[part]
+    lengths = lengths.clamp(max=end) - start
+    assert (lengths >= WIN).all(), "a recording has less than one window in this part"
+    return X[:, :, start:end], lengths
+
+
+def keep_children(mask, ids, X, lengths, ages):
+    idx = mask.nonzero().squeeze(1)
+    return [ids[i] for i in idx.tolist()], X[idx], lengths[idx], ages[idx]
 
 def train(device, run_name, epochs=60, lr=1e-3, weight_decay=1e-2, dropout=0.3,
-          crops_per_child=8, batch_size=64, seed=0, overfit=False):
-    settings = {"epochs": epochs, "lr": lr, "weight_decay": weight_decay, "dropout": dropout,
-                "crops_per_child": crops_per_child, "batch_size": batch_size, "seed": seed,
-                "overfit": overfit, "window_s": WIN // FS}
+          crops_per_child=8, batch_size=64, seed=0, overfit=False,
+          part="all", max_age=None, fc_bn=True, loss="huber", target="log"):
+    # The defaults are the frozen settings we defined in (docs/FROZEN_SETTINGS.md);
+    # the last five arguments are for the experiments only.
+    settings = {
+        "epochs": epochs,
+        "lr": lr,
+        "weight_decay": weight_decay,
+        "dropout": dropout,
+        "crops_per_child": crops_per_child,
+        "batch_size": batch_size,
+        "seed": seed,
+        "overfit": overfit,
+        "window_s": WIN // FS,
+        "part": part,
+        "max_age": max_age,
+        "fc_bn": fc_bn,
+        "loss": loss,
+        "target": target,
+    }
+    loss_fn = {
+        "huber": nn.functional.huber_loss,
+        "mse": nn.functional.mse_loss,
+    }[loss]
+    to_target = torch.log if target == "log" else (lambda a: a)
+
     torch.manual_seed(seed)
     gen = torch.Generator(device=device).manual_seed(seed)
     out = OUTPUTS / run_name
     out.mkdir(parents=True, exist_ok=True)
 
     ids, X, lengths, ages = load_split("train", device)
+    if max_age is not None:
+        ids, X, lengths, ages = keep_children(
+            ages < max_age, ids, X, lengths, ages
+        )
+    X, lengths = keep_part(X, lengths, part)
     scale = global_scale(X, lengths)
+
     if overfit:
-        # 20 training children spread over the age range, each cut to one fixed window (the first 16 s of N2).
-        # A working pipeline memorises these 20 inputs: the loss goes to about 0 and predictions match the ages.
+        # 20 training children spread over the age range, each cut to one fixed window.
+        # A working pipeline memorises these inputs: loss approaches 0
+        # and predictions match the ages.
         keep = torch.argsort(ages)[torch.linspace(0, len(ids) - 1, 20).long()]
         ids, ages = [ids[i] for i in keep.tolist()], ages[keep]
-        X, lengths = X[keep, :, 300 * FS:300 * FS + WIN], torch.full_like(lengths[keep], WIN)
+        X, lengths = (
+            X[keep, :, 300 * FS:300 * FS + WIN],
+            torch.full_like(lengths[keep], WIN),
+        )
         val_ids, Xv, lv, val_ages = ids, X, lengths, ages
     else:
         val_ids, Xv, lv, val_ages = load_split("val", device)
+        if max_age is not None:
+            val_ids, Xv, lv, val_ages = keep_children(
+                val_ages < max_age, val_ids, Xv, lv, val_ages
+            )
+        Xv, lv = keep_part(Xv, lv, part)
+
     windows, owner = eval_windows(Xv, lv)
     val_age = val_ages.cpu().numpy()
 
-    model = BrainAgeCNN(dropout=dropout).to(device)
+    model = BrainAgeCNN(dropout=dropout, fc_bn=fc_bn).to(device)
     with torch.no_grad():
-        model.head[-1].bias.fill_(torch.log(ages).mean())  # start by predicting the average log(age)
-    opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
-    sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=epochs)  # lr falls smoothly to 0
+        # Start by predicting the average (log) age.
+        model.head[-1].bias.fill_(to_target(ages).mean())
+
+    opt = torch.optim.AdamW(
+        model.parameters(), lr=lr, weight_decay=weight_decay
+    )
+    # Learning rate falls smoothly to 0.
+    sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=epochs)
 
     log = []
     for epoch in range(1, epochs + 1):
         t0 = time.time()
         model.train()
         losses = []
+
         for idx in epoch_batches(len(ids), crops_per_child, batch_size, gen):
             x = crop(X, idx, random_starts(lengths, idx, gen)).float() / scale
-            loss = nn.functional.huber_loss(model(x), torch.log(ages[idx]))
+            loss = loss_fn(model(x), to_target(ages[idx]))
             opt.zero_grad()
             loss.backward()
             opt.step()
             losses.append(loss.item())
+
         lr_used = sched.get_last_lr()[0]
         sched.step()
 
-        # val is scored every epoch for the learning curve only, never to pick an epoch
-        recompute_bn(model, X, lengths, scale, crops_per_child, batch_size, seed)
+        # Validation is scored every epoch for the learning curve only,
+        # never to pick an epoch.
+        recompute_bn(
+            model, X, lengths, scale, crops_per_child, batch_size, seed
+        )
 
         log_pred = window_log_ages(model, windows, scale)
-        val_loss = nn.functional.huber_loss(
-            log_pred, torch.log(val_ages[owner])
-        ).item()
-        pred = child_ages(log_pred, owner, len(val_ids))
+        val_loss = loss_fn(log_pred, to_target(val_ages[owner])).item()
+        pred = child_ages(
+            log_pred, owner, len(val_ids), log_target=(target == "log")
+        )
 
         mae, bal = mae_scores(val_age, pred)
         log.append({
@@ -235,11 +300,19 @@ def train(device, run_name, epochs=60, lr=1e-3, weight_decay=1e-2, dropout=0.3,
             f"({time.time() - t0:.1f} s)"
         )
 
-    # the result is the model after the last epoch, with the BN statistics just recomputed
-    torch.save({"model": model.state_dict(), "scale": scale, "settings": settings}, out / "final.pt")
-    pd.DataFrame({"id": val_ids, "age": val_age, "pred": pred}).to_csv(out / "val_predictions.csv", index=False)
-    print(f"final val MAE {mae:.2f}, balanced {bal:.2f}; saved to {out}")
+    # The result is the model after the last epoch,
+    # with the BN statistics just recomputed.
+    torch.save(
+        {"model": model.state_dict(), "scale": scale, "settings": settings},
+        out / "final.pt",
+    )
+    pd.DataFrame({
+        "id": val_ids,
+        "age": val_age,
+        "pred": pred,
+    }).to_csv(out / "val_predictions.csv", index=False)
 
+    print(f"final val MAE {mae:.2f}, balanced {bal:.2f}; saved to {out}")
 
 def predict_test(device, run_name):
     # run once per frozen model, after freezing the model settings
@@ -414,11 +487,23 @@ if __name__ == "__main__":
     parser.add_argument("--epochs", type=int, default=60)
     parser.add_argument("--run-name", default="cnn16s")
     parser.add_argument("--seed", type=int, default=0)
+    # experiment options (validation only); every default is the frozen setting
+    parser.add_argument("--window", type=int, default=16, help="window length in seconds")
+    parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument("--dropout", type=float, default=0.3)
+    parser.add_argument("--weight-decay", type=float, default=1e-2)
+    parser.add_argument("--part", choices=list(PARTS), default="all", help="use one part of the night only")
+    parser.add_argument("--max-age", type=float, default=None, help="train and score only children younger than this")
+    parser.add_argument("--no-fc-bn", action="store_true", help="leave out the batch norm after the fully connected layer")
+    parser.add_argument("--loss", choices=["huber", "mse"], default="huber")
+    parser.add_argument("--target", choices=["log", "years"], default="log", help="predict log(age) or age in years")
     parser.add_argument(
         "--predict-test", action="store_true",
         help="reload final.pt and predict test once, after the freeze",
     )
     args = parser.parse_args()
+
+    WIN = args.window * FS   # every function reads the window length from this module-level name
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -438,7 +523,9 @@ if __name__ == "__main__":
         )
 
     if args.train:
-        train(device, args.run_name, epochs=args.epochs, seed=args.seed)
+        train(device, args.run_name, epochs=args.epochs, seed=args.seed, lr=args.lr, dropout=args.dropout,
+            weight_decay=args.weight_decay, part=args.part, max_age=args.max_age,
+            fc_bn=not args.no_fc_bn, loss=args.loss, target=args.target)
 
     if args.predict_test:
         predict_test(device, args.run_name)

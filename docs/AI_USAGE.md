@@ -186,3 +186,70 @@ fixed check_setup.py.
 - Switched 01_baseline.ipynb to the plain tqdm progress bar, reran it and committed.
 
 **Transcript:** docs/ai_transcripts/2026-11-16_oli_claude-code_cnn-fix-and-comparison.md
+
+
+### 2026-11-16: Óli, Claude Code (Claude Opus 5.5) - Frozen settings, test comparison and experiment plan
+
+**Prompts (paraphrased; verbatim in the transcript):**
+1. Continue from the handoff written at the end of the previous session (pasted twice; the first paste was cut off).
+2. Go ahead with freezing the settings and running the test comparison tonight.
+3. Update the comparison notebook before the test run.
+4. Are all outputs in outputs/? Would one document with all the material be the best source for writing the report?
+5. (With a screenshot of the baseline table) Plan proper experiments on the hyperparameters and design choices.
+
+**What the AI did:**
+- Re-exported earlier transcripts and pointed out that two committed transcripts no longer match the session logs.
+- Proposed the freeze changes to scripts/train_cnn.py: shared prediction functions (window_log_ages, child_ages),
+  validation loss in learning_curve.csv, a --seed option, and --predict-test, which reproduces the saved validation
+  predictions before writing test predictions. Tested them on scratch copies.
+- Wrote the last cell of 01_baseline.ipynb: refit ridge on train, check that it reproduces the validation
+  predictions, write the test predictions.
+- Drafted the text of docs/FROZEN_SETTINGS.md (frozen settings and test protocol) and the commands for the three
+  CNN seeds and the test predictions.
+- Rewrote notebooks/02_cnn_results.ipynb for 3 seeds and both splits: learning curves, results tables, a stratified
+  paired bootstrap and the comparison figure (colours checked with a colour-accessibility validator). Tested it on our outputs.
+- Read the test results and listed points to check when interpreting them.
+- Advised keeping the report material as files plus short notes (points, numbers, sources) rather than drafted
+  sentences, so that no AI text ends up in the report.
+- Designed the post-freeze experiments (11 variants, one change at a time, 3 seeds each, validation only). Proposed
+  the experiment options for scripts/train_cnn.py and the loop that runs them, checked that the default settings
+  give the same results as the frozen script, and ran every variant for one epoch.
+- No report text was written in this session.
+
+**Our changes:**
+- Typed the freeze changes into scripts/train_cnn.py and 01_baseline.ipynb, added docs/FROZEN_SETTINGS.md and
+  committed the freeze (4aee1f3).
+- Ran the three CNN seeds and the test predictions for both models.
+- Put the new cells into 02_cnn_results.ipynb (marked AI-assisted) and ran it.
+
+**Transcript:** docs/ai_transcripts/2026-11-16_oli_claude-code_freeze-and-test.md
+
+
+### 2026-11-17: Óli, Claude Code (Claude Opus 5.5) - Running the experiments
+
+**Prompts (paraphrased; verbatim in the transcript):**
+1. Does everything make sense before the 3-hour run, is the hardware used properly, and will the laptop overheat?
+2. The run has started; how does it look, can I leave it?
+3. Post a progress update here every 20 minutes so I can follow it on my phone.
+4. Is everything done, can I close the computer?
+5. Export the transcript and draft this log entry.
+
+**What the AI did:**
+- Compared our scripts/train_cnn.py with the tested version and found a missing default argument in child_ages
+  that would have crashed every run after its first epoch.
+- Ran each experiment for one epoch and one full run on a scratch copy, measuring GPU and CPU temperatures, power
+  and throttling. The scratch run is not used in the report.
+- Checked the running loop (Python environment, power and sleep settings) and logged temperatures every 30 s with
+  a scratch script (highest: GPU 82 °C, CPU 96 °C; no thermal throttling).
+- Posted progress every 20 minutes from a scheduled check: finished runs, their final validation MAE and balanced
+  MAE (read from learning_curve.csv) and temperatures. At the end it tabulated the mean and range over the 3 seeds
+  for each variant. These are first readings; the analysis comes in 03_experiments.ipynb.
+- Rebuilt the transcript exporter (outside the repo), extended it to handle re-sent prompts, scheduled prompts and
+  automatic context summaries, and exported this session and the evening of 16 Nov.
+- No report text was written in this session.
+
+**Our changes:**
+- Added the experiment options and the child_ages fix to scripts/train_cnn.py.
+- Ran the 33 experiment runs (outputs/exp_*).
+
+**Transcript:** docs/ai_transcripts/2026-11-17_oli_claude-code_experiments.md
